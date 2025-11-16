@@ -20,6 +20,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Static Files Examples
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
+# Project-level static files:
+STATICFILES_DIRS = [BASE_DIR / "static"]
+
 # In all examples, the web server should be configured to serve files from the 'public'
 # directory.
 # We switch between example configurations based on this environment variable.
@@ -82,6 +85,8 @@ elif STATIC_CONFIG == "custom":
         },
     }
 
+# Purely for demonstration purposes, create the STATIC_ROOT if it doesn't exist.
+STATIC_ROOT.mkdir(parents=True, exist_ok=True)
 #######################################################################################
 
 
@@ -100,7 +105,7 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
-    "django.contrib.admin",
+    # "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
