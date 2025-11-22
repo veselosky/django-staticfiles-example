@@ -1,0 +1,22 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Staticfiles demo</title>
+  <link rel="stylesheet" href="{% static 'styles.css' %}">
+</head>
+<body>
+  <main class="container">
+    <h1>Staticfiles &amp; the <code>{% templatetag openblock %} static {% templatetag closeblock %}</code> tag</h1>
+    <p>This page demonstrates using Django's staticfiles system and the 
+        <code>{% templatetag openblock %} static {% templatetag closeblock %}</code> template tag.
+    </p>
+    <p>
+      <a href="{% static 'example.txt' %}" target="_blank" rel="noopener">Open example static file</a>
+    </p>
+    <p>The example URL is: {% static 'example.txt' %}</p>
+  </main>
+</body>
+</html>
