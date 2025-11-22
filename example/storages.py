@@ -1,36 +1,40 @@
-import subprocess
-
+import os.path
 from django.conf import settings
 from django.contrib.staticfiles.storage import (
     ManifestStaticFilesStorage,
     StaticFilesStorage,
 )
+from django.utils.module_loading import import_string
 
-# To ensure a unique name across deployments, get the hash for the current git commit
-# and use it as a prefix for the static files manifest. This way, even if the static 
-# files are collected to the same STATIC_ROOT location, the manifest files will be 
-# different for each deployment. Calculated at import time so that running processes 
-# will not be affected by changes in the working directory.
-try:
-    GIT_HASH = (
-        subprocess.check_output(["git", "rev-parse", "HEAD"])
-        .decode("utf-8")
-        .strip()
-    )
-except Exception:
-    GIT_HASH = "unknown"
+from storages.backends.s3 import S3StaticStorage, S3ManifestStaticStorage
 
 
 # Custom static files storage that stores the manifest file in a unique subdirectory.
-# NOTE: This example uses the local filesystem for storage. If you're using S3Storage
-# from django-storages, subclass from S3ManifestStaticStorage instead.
-class ExampleManifestLocalStorage(ManifestStaticFilesStorage):
+class ReleaseSpecificManifestLocalStorage(ManifestStaticFilesStorage):
     def __init__(self, *args, **kwargs):
-        # Override the storage location for the manifest file to be in a subdirectory
-        # named after the release ID (or git hash). This prevents cross-talk between 
-        # releases during deployments or rollbacks.
+        # Determine the release ID to use for the manifest file location.
         release_id = kwargs.pop("release_id", None)
-        if not release_id:  # In case the key is set but None/empty
-            release_id = GIT_HASH
+        release_id_strategy_path = kwargs.pop("release_id_strategy", None)
+        if not release_id:
+            release_id_strategy = import_string(release_id_strategy_path)
+            release_id = release_id_strategy()
+        # Set up the manifest storage to use a subdirectory named after the release ID.
         manifest_storage = StaticFilesStorage(location=settings.STATIC_ROOT / release_id)
+        super().__init__(*args, manifest_storage=manifest_storage, **kwargs)
+
+
+class ReleaseSpecificManifestS3Storage(S3ManifestStaticStorage):
+    def __init__(self, *args, **kwargs):
+        # Determine the release ID to use for the manifest file location.
+        release_id = kwargs.pop("release_id", None)
+        release_id_strategy_path = kwargs.pop("release_id_strategy", None)
+        if not release_id:
+            release_id_strategy = import_string(release_id_strategy_path)
+            release_id = release_id_strategy()
+
+        # Set up the manifest storage to use a subdirectory named after the release ID
+        # otherwise using all the same S3 settings as the main storage.
+        opts = kwargs.copy() # copy to avoid modifying original
+        opts["location"] = os.path.join(kwargs.get("location", ""), release_id)
+        manifest_storage = S3StaticStorage(**opts)
         super().__init__(*args, manifest_storage=manifest_storage, **kwargs)

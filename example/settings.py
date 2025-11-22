@@ -78,15 +78,65 @@ elif STATIC_CONFIG == "custom":
         },
         "staticfiles": {
             # Location defaults to STATIC_ROOT + release_id (see storages.py)
-            "BACKEND": "example.storages.ExampleManifestLocalStorage",
+            "BACKEND": "example.storages.ReleaseSpecificManifestLocalStorage",
             "OPTIONS": {
                 "release_id": RELEASE_ID,
+                "release_id_strategy": environ.get("RELEASE_ID_STRATEGY", "example.release_id_strategies.git_hash"),
+            },
+        },
+    }
+
+elif STATIC_CONFIG == "s3":
+    # Example 4: Using S3 for static files with per-release manifest files.
+    # Similar to the previous example, but using S3 for static file storage.
+    
+    # Ensure the required AWS settings are set in the environment.
+    BUCKET_NAME = environ.get("AWS_STORAGE_BUCKET_NAME")
+    AWS_ACCESS_KEY_ID = environ.get("AWS_ACCESS_KEY_ID")
+    AWS_SECRET_ACCESS_KEY = environ.get("AWS_SECRET_ACCESS_KEY")
+    msg = "To use S3 storage, set AWS_STORAGE_BUCKET_NAME, AWS_ACCESS_KEY_ID, and AWS_SECRET_ACCESS_KEY in the environment."
+    assert BUCKET_NAME and AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY, msg
+    
+    STATIC_ROOT = None  # Not used with S3 storage.
+    # If using a CloudFront distribution or other CDN, set STATIC_URL to that.
+    # NOTE: STATIC_URL MUST end in a slash (/)
+    STATIC_URL = environ.get("STATIC_URL", f"https://{BUCKET_NAME}.s3.amazonaws.com/static/")
+    # If using a CloudFront distribution or other CDN, set the custom domain here.
+    # NOTE: CDN_DOMAIN MUST NOT end in a slash (/)
+    CDN_DOMAIN = environ.get("AWS_S3_CUSTOM_DOMAIN", None)
+    RELEASE_ID = environ.get("RELEASE_ID", None)
+    
+    # Note that we are storing Media and Static in the same bucket, but under
+    # different prefixes ("media/" and "static/"). This is not required, they can be
+    # in different buckets if desired.
+    STORAGES = {
+        "default": {
+            "BACKEND": "storages.backends.s3.S3Storage",
+            "OPTIONS": {
+                "bucket_name": BUCKET_NAME,
+                "access_key": AWS_ACCESS_KEY_ID,
+                "secret_key": AWS_SECRET_ACCESS_KEY,
+                "custom_domain": CDN_DOMAIN,
+                "location": "media/",
+            },
+        },
+        "staticfiles": {
+            "BACKEND": "example.storages.ReleaseSpecificManifestS3Storage",
+            "OPTIONS": {
+                "bucket_name": BUCKET_NAME,
+                "access_key": AWS_ACCESS_KEY_ID,
+                "secret_key": AWS_SECRET_ACCESS_KEY,
+                "custom_domain": CDN_DOMAIN,
+                "location": "static/",
+                "release_id": RELEASE_ID,
+                "release_id_strategy": environ.get("RELEASE_ID_STRATEGY", "example.release_id_strategies.git_hash"),
             },
         },
     }
 
 # Purely for demonstration purposes, create the STATIC_ROOT if it doesn't exist.
-STATIC_ROOT.mkdir(parents=True, exist_ok=True)
+if STATIC_ROOT:
+    STATIC_ROOT.mkdir(parents=True, exist_ok=True)
 #######################################################################################
 
 
@@ -105,6 +155,7 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    "example",
     # "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
