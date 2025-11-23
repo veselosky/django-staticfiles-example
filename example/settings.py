@@ -24,7 +24,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 STATICFILES_DIRS = [BASE_DIR / "static"]
 
 # In all examples, the web server should be configured to serve files from the 'public'
-# directory.
+# directory. For purposes of testing locally, we'll use `python -m http.server 8080` to 
+# serve files from there. Therefore, STATIC_URL is a full URL, not just a path.
+STATIC_URL = "http://localhost:8080/static-default/"
+MEDIA_URL = "http://localhost:8080/media/"
+
 # We switch between example configurations based on this environment variable.
 STATIC_CONFIG = environ.get("STATIC_CONFIG", "default").lower()
 
@@ -34,8 +38,6 @@ STATIC_CONFIG = environ.get("STATIC_CONFIG", "default").lower()
 # manifest file, so static files are served with their original names, and overwritten
 # on each `collectstatic` run. This is bad for a production environment because the
 # static files could change at any time, and therefore cannot be safely cached.
-STATIC_URL = "static/"
-MEDIA_URL = "media/"
 STATIC_ROOT = BASE_DIR / "public" / "static-default"
 MEDIA_ROOT = BASE_DIR / "public" / "media"
 
@@ -48,6 +50,7 @@ MEDIA_ROOT = BASE_DIR / "public" / "media"
 # manifest file may not match the code that is currently being served.
 if STATIC_CONFIG == "manifest":
     STATIC_ROOT = BASE_DIR / "public" / "static-manifest-default"
+    STATIC_URL = "http://localhost:8080/static-manifest-default/"
     STORAGES = {
         "default": {
             # Location defaults to MEDIA_ROOT
@@ -70,6 +73,7 @@ if STATIC_CONFIG == "manifest":
 # See `storages.py` for the implementation of `ExampleManifestLocalStorage`.
 elif STATIC_CONFIG == "custom":
     STATIC_ROOT = BASE_DIR / "public" / "static-manifest-custom"
+    STATIC_URL = "http://localhost:8080/static-manifest-custom/"
     RELEASE_ID = environ.get("RELEASE_ID", None)
     STORAGES = {
         "default": {
@@ -182,7 +186,11 @@ WSGI_APPLICATION = "example.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        # Use an in-memory SQLite database instead of creating a file on disk.
+        # Note: in-memory DB is ephemeral and won't persist across process restarts
+        # or multiple database connections. This is intended for ephemeral
+        # development/testing environments.
+        "NAME": ":memory:",
     }
 }
 
