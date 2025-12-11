@@ -23,15 +23,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Project-level static files:
 STATICFILES_DIRS = [BASE_DIR / "static"]
 
-# In all examples, the web server should be configured to serve files from the 'public'
-# directory. For purposes of testing locally, we'll use `python -m http.server 8080` to 
-# serve files from there. Therefore, STATIC_URL is a full URL, not just a path.
-STATIC_URL = "http://localhost:8080/static-default/"
-MEDIA_URL = "http://localhost:8080/media/"
-
 # We switch between example configurations based on this environment variable.
 STATIC_CONFIG = environ.get("STATIC_CONFIG", "default").lower()
 
+#######################################################################################
 # Example 1: Default static files behavior.
 # This is the "default" configuration for new Django projects. No STORAGES are defined.
 # Static files are collected to STATIC_ROOT, and served from there. There is no
@@ -40,13 +35,22 @@ STATIC_CONFIG = environ.get("STATIC_CONFIG", "default").lower()
 # static files could change at any time, and therefore cannot be safely cached.
 STATIC_ROOT = BASE_DIR / "public" / "static-default"
 MEDIA_ROOT = BASE_DIR / "public" / "media"
+# In all examples, the web server should be configured to serve files from the 'public'
+# directory. For purposes of testing locally, we'll use `python -m http.server 8080` to
+# serve files from there. Therefore, STATIC_URL is a full URL, not just a path.
+STATIC_URL = "http://localhost:8080/static-default/"
+MEDIA_URL = "http://localhost:8080/media/"
 
+
+#######################################################################################
 # Example 2: Using ManifestStaticFilesStorage for static files.
 # This is a better configuration for production use. It uses hashed names for static
 # files, which allows them to be safely cached. However, the default behavior of
 # ManifestStaticFilesStorage is to write the manifest file to a fixed location:
-# STATIC_ROOT/staticfiles.json. This the manifest file is overwritten on each
-# `collectstatic` run. This can cause bugs during deployments or rollbacks, because the
+# STATIC_ROOT/staticfiles.json. This manifest file is overwritten on each
+# `collectstatic` run. This works tolerably well IF your deployment pattern is
+# STOP-UPGRADE-START, meaning the system will be down during deployments. However,
+# this can cause bugs during rolling deployments or rollbacks, because the
 # manifest file may not match the code that is currently being served.
 if STATIC_CONFIG == "manifest":
     STATIC_ROOT = BASE_DIR / "public" / "static-manifest-default"
@@ -62,19 +66,24 @@ if STATIC_CONFIG == "manifest":
         },
     }
 
+
+#######################################################################################
 # Example 3: Custom static files storage with per-release manifest files.
-# To avoid overwriting `staticfiles.json` every time, we define a custom storage 
-# class in `storages.py` that stores the manifest file in a subdirectory named after 
-# the current "release ID". If you don't pass a release id, it defaults to the git hash 
-# of the current commit. (If you're not using git, you'll need to set the RELEASE_ID 
-# environment variable during deployment to a unique value for each deployment, such as 
-# a timestamp.) This way, old code continues using the old manifest file, and new code 
+# To avoid overwriting `staticfiles.json` every time, we define a custom storage
+# class in `storages.py` that stores the manifest file in a subdirectory named after
+# the current "release ID". If you don't pass a release id, it defaults to the git hash
+# of the current commit. (If you're not using git, you'll need to set the RELEASE_ID
+# environment variable during deployment to a unique value for each deployment, such as
+# a timestamp.) This way, old code continues using the old manifest file, and new code
 # uses the new manifest file.
 # See `storages.py` for the implementation of `ExampleManifestLocalStorage`.
 elif STATIC_CONFIG == "custom":
     STATIC_ROOT = BASE_DIR / "public" / "static-manifest-custom"
     STATIC_URL = "http://localhost:8080/static-manifest-custom/"
     RELEASE_ID = environ.get("RELEASE_ID", None)
+    RELEASE_ID_STRATEGY = environ.get(
+        "RELEASE_ID_STRATEGY", "example.release_id_strategies.git_hash"
+    )
     STORAGES = {
         "default": {
             # Location defaults to MEDIA_ROOT
@@ -85,31 +94,40 @@ elif STATIC_CONFIG == "custom":
             "BACKEND": "example.storages.ReleaseSpecificManifestLocalStorage",
             "OPTIONS": {
                 "release_id": RELEASE_ID,
-                "release_id_strategy": environ.get("RELEASE_ID_STRATEGY", "example.release_id_strategies.git_hash"),
+                "release_id_strategy": RELEASE_ID_STRATEGY,
             },
         },
     }
 
+
+#######################################################################################
+# Example 4: Using S3 for static files with per-release manifest files.
+# Similar to the custom example, but using S3 for static file storage.
 elif STATIC_CONFIG == "s3":
-    # Example 4: Using S3 for static files with per-release manifest files.
-    # Similar to the previous example, but using S3 for static file storage.
-    
     # Ensure the required AWS settings are set in the environment.
     BUCKET_NAME = environ.get("AWS_STORAGE_BUCKET_NAME")
     AWS_ACCESS_KEY_ID = environ.get("AWS_ACCESS_KEY_ID")
     AWS_SECRET_ACCESS_KEY = environ.get("AWS_SECRET_ACCESS_KEY")
-    msg = "To use S3 storage, set AWS_STORAGE_BUCKET_NAME, AWS_ACCESS_KEY_ID, and AWS_SECRET_ACCESS_KEY in the environment."
+    msg = (
+        "To use S3 storage, set AWS_STORAGE_BUCKET_NAME, AWS_ACCESS_KEY_ID, and "
+        "AWS_SECRET_ACCESS_KEY in the environment."
+    )
     assert BUCKET_NAME and AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY, msg
-    
+
     STATIC_ROOT = None  # Not used with S3 storage.
     # If using a CloudFront distribution or other CDN, set STATIC_URL to that.
     # NOTE: STATIC_URL MUST end in a slash (/)
-    STATIC_URL = environ.get("STATIC_URL", f"https://{BUCKET_NAME}.s3.amazonaws.com/static/")
+    STATIC_URL = environ.get(
+        "STATIC_URL", f"https://{BUCKET_NAME}.s3.amazonaws.com/static/"
+    )
     # If using a CloudFront distribution or other CDN, set the custom domain here.
     # NOTE: CDN_DOMAIN MUST NOT end in a slash (/)
     CDN_DOMAIN = environ.get("AWS_S3_CUSTOM_DOMAIN", None)
     RELEASE_ID = environ.get("RELEASE_ID", None)
-    
+    RELEASE_ID_STRATEGY = environ.get(
+        "RELEASE_ID_STRATEGY", "example.release_id_strategies.git_hash"
+    )
+
     # Note that we are storing Media and Static in the same bucket, but under
     # different prefixes ("media/" and "static/"). This is not required, they can be
     # in different buckets if desired.
@@ -133,7 +151,7 @@ elif STATIC_CONFIG == "s3":
                 "custom_domain": CDN_DOMAIN,
                 "location": "static/",
                 "release_id": RELEASE_ID,
-                "release_id_strategy": environ.get("RELEASE_ID_STRATEGY", "example.release_id_strategies.git_hash"),
+                "release_id_strategy": RELEASE_ID_STRATEGY,
             },
         },
     }
@@ -141,6 +159,8 @@ elif STATIC_CONFIG == "s3":
 # Purely for demonstration purposes, create the STATIC_ROOT if it doesn't exist.
 if STATIC_ROOT:
     STATIC_ROOT.mkdir(parents=True, exist_ok=True)
+
+# END OF STATIC FILES EXAMPLES
 #######################################################################################
 
 

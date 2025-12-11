@@ -7,7 +7,7 @@ There are four example configurations, which can be selected by setting the `STA
 - `default`: Simplest static files setup, providing only `STATIC_ROOT` setting, leaving STORAGES to the default. This setup does not provide cache busting for static files or atomic deployments. It is NOT recommended for production use.
 - `manifest`: Uses `ManifestStaticFilesStorage` to provide cache busting by appending a hash to static file names. The manifest file is stored in `STATIC_ROOT/staticfiles.json`. This setup provides cache busting but may have issues during rolling deployments or rollbacks due to the manifest being overwritten. Only suitable for production if your deployment process is "stop-update-start" (your site will be down briefly during deployment) or if you can tolerate some strange behavior during deployment.
 - `custom`: A custom static files storage backend that stores the manifest file in a unique subdirectory based on the deployment's release ID or git hash. Old manifest files are retained. This prevents issues with manifest files cross-talk during rolling deployments or rollbacks. See `example/storages.py` for implementation details (it's very simple).
-- `s3`: Uses `django-storages` to serve static files from Amazon S3 with per-release manifests.
+- `s3`: Uses `django-storages` to collect static files to Amazon S3 with per-release manifests.
 
 1. Ensure you have [uv](https://astral.sh/uv/) installed.
 2. From the project root, run the `collectstatic` command with the desired static files configuration. For example, to use the `custom` configuration:
@@ -42,7 +42,7 @@ However, when you run the development server with `uv run ./manage.py runserver`
 Open another terminal window and run:
 
 ```bash
-python3 -m http.server -d public/ 8080
+uv run python -m http.server -d public/ 8080
 ```
 
 Now you have Django serving your application on port 8000 and a simple HTTP server serving your static files on port 8080. You can access your application at `http://localhost:8000/` and verify that the static files are being served correctly from `http://localhost:8080/static/`.
